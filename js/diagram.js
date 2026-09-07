@@ -1,10 +1,11 @@
-var $ = require("./jquery-2.1.4.min");
-var EventEmitter = require("events");
-var sprintf = require("sprintf");
-var emitter = new EventEmitter();
+var listeners = {};
+var emitter = {
+    on: function(name, callback) { (listeners[name] || (listeners[name] = [])).push(callback); },
+    emit: function(name, value) { (listeners[name] || []).forEach(function(callback) { callback(value); }); }
+};
 var CURRENT_DOC;
 var svgElement = function() {
-    return $("svg");
+    return $("#diagram-1 svg");
 };
 var getViewBox = function(svg) {
     return svg[0].getAttribute("viewBox").split(/\s/g).map(parseFloat);
@@ -17,13 +18,14 @@ var DEFAULT_VIEW_BOX = "";
 var setViewBox = function(svg, values) {
     var text = values.join(" ");
     svg[0].setAttribute("viewBox", text);
-    $("#viewBox").text(sprintf("%4.2f,%4.2f,%4.2f,%4.2f", values[0], values[1], values[2], values[3]));
+    $("#viewBox").text(values.map(function(value) { return value.toFixed(2); }).join(","));
     VIEW_BOX_VALUES = values;
 };
 
 $(function() {
     $("#plus").on("click", function() {
         var svg = svgElement();
+        if (!svg.length) return;
         var viewBoxValues = getViewBox(svg);
         viewBoxValues[2] /= 1.2;
         viewBoxValues[3] /= 1.2;
@@ -32,11 +34,13 @@ $(function() {
 
     $("#flat").on("click", function() {
         var svg = svgElement();
+        if (!svg.length || !DEFAULT_VIEW_BOX) return;
         setViewBox(svg, DEFAULT_VIEW_BOX);
     });
 
     $("#minus").on("click", function() {
         var svg = svgElement();
+        if (!svg.length) return;
         var viewBoxValues = getViewBox(svg);
         viewBoxValues[2] *= 1.2;
         viewBoxValues[3] *= 1.2;
@@ -49,9 +53,16 @@ var refresh = function(data) {
     var meta = data.meta;
     var doc = data.svg;
     CURRENT_DOC = doc;
-    $("#diagram-1").html(doc);
+    var parsed = new DOMParser().parseFromString(doc, 'image/svg+xml');
+    parsed.querySelectorAll('script, foreignObject').forEach(function(node) { node.remove(); });
+    parsed.querySelectorAll('*').forEach(function(node) {
+        Array.from(node.attributes).forEach(function(attr) {
+            if (/^on/i.test(attr.name) || /href$/i.test(attr.name)) node.removeAttribute(attr.name);
+        });
+    });
+    $("#diagram-1").empty().append(document.importNode(parsed.documentElement, true));
     var svg = svgElement();
-    svg[0].setAttribute("viewBox", [-14, -30, svg.width() * 0.8, svg.height() * 0.8].join(" "));
+    if (!svg.length) throw new Error('Invalid diagram SVG');
 
     var metaData = JSON.parse(meta);
     DEFAULT_VIEW_BOX = getViewBox(svg);
@@ -72,6 +83,7 @@ var refresh = function(data) {
     svg.find("g.node").on("click", function(e) {
         var text = $(this).find("title").text().trim();
         if ($(this).find("ellipse").length === 0) {
+            if (!metaData[text]) return;
             var lines = metaData[text].lines;
             emitter.emit("page-click", lines);
         } else {
@@ -95,8 +107,8 @@ var refresh = function(data) {
     });
     svg.on("mousemove", function(evt) {
         if (onDrag) {
-            movingX = evt.clientX;
-            movingY = evt.clientY;
+            var movingX = evt.clientX;
+            var movingY = evt.clientY;
             var diffX = movingX - startX;
             var diffY = movingY - startY;
             var viewBoxValues = getViewBox(svg);
@@ -114,7 +126,7 @@ var refresh = function(data) {
     });
 };
 
-module.exports = {
+window.guiflowDiagram = {
     refresh: refresh,
     on: function(channel, cb) {
         emitter.on(channel, cb);

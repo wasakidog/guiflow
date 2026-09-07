@@ -1,57 +1,16 @@
-var fs = require("fs");
-var uiflow = require("uiflow");
-var flumine = require("flumine");
-var through2 = require("through2");
+'use strict';
+const parser = require('uiflow/app/parser');
+const dotwriter = require('uiflow/app/dotwriter');
+let renderer;
 
-var api = module.exports = {};
-
-api.update = function(inputFileName, code, format) {
-    var f = flumine(function(d, ok, ng) {
-
-        var buff = [];
-        var output = through2(function(chunk, enc, cb) {
-            var svg = chunk;
-            buff.push(svg);
-            cb();
-
-        });
-        var stream = uiflow.buildWithCode(
-            inputFileName, code, format, function(error) {
-                ng(error);
-            });
-        stream.pipe(output);
-        stream.on("end", function() {
-            var buffAll = Buffer.concat(buff);
-            ok(buffAll);
-            output.end();
-        });
-
-
-    });
-    return f();
-};
-
-var stringify = function(buff) {
-    var str = String(buff);
-    return str;
-};
-
-var base64nize = function(buff) {
-    return buff.toString("base64");
-};
-api.compile = function(code) {
-    return flumine.set({
-        svg: flumine.to(function(d) {
-            return api.update("<anon>", code, "svg");
-        }).to(stringify),
-        meta: flumine.to(function(d) {
-            return api.update("<anon>", code, "meta");
-        }).to(stringify)
-    })();
-};
-
-api.base64png = function(code) {
-    return flumine.to(function() {
-        return api.update("<anon>", code, "png");
-    }).to(base64nize)();
-};
+async function compile(code) {
+    if (typeof code !== 'string' || code.length > 1000000) {
+        throw new Error('Document must be text, at most 1 MB.');
+    }
+    const meta = parser.parse(code, '<document>');
+    if (!renderer) renderer = import('@viz-js/viz').then(viz => viz.instance());
+    const viz = await renderer;
+    const svg = viz.renderString(dotwriter.compile(meta), { format: 'svg' });
+    return { svg, meta: JSON.stringify(meta) };
+}
+module.exports = { compile };

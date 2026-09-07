@@ -3,9 +3,14 @@
 
 <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'">
     <link rel="stylesheet" href="css/main.css">
-    <script src="js/script.js"></script>
+    <script defer src="js/jquery-2.1.4.min.js"></script>
+    <script defer src="node_modules/ace-builds/src-min-noconflict/ace.js"></script>
+    <script defer src="node_modules/ace-builds/src-min-noconflict/theme-monokai.js"></script>
+    <script defer src="js/editor.js"></script>
+    <script defer src="js/diagram.js"></script>
+    <script defer src="js/script.js"></script>
 </head>
 <body>
 <div class="main">
@@ -19,22 +24,23 @@
 </div>
 <div class="navigation">
 <div id="scale">
-  <button id="download" class="btn btn-default"><span class="glyphicon glyphicon-download" aria-hidden="true"></span></button>
+  <button id="download" class="btn btn-default" title="Copy diagram image">PNG</button>
 
   <div class="btn-group" role="group" aria-label="...">
     <button id="plus" class="btn btn-default">
-      <span class="glyphicon glyphicon-zoom-in" aria-hidden="true"></span>
+      <span aria-label="Zoom in">+</span>
     </button>
     <button id="flat" class="btn btn-default">
-      <span class="glyphicon glyphicon-pause" aria-hidden="true"></span>
+      <span aria-label="Reset zoom">1:1</span>
     </button>
     <button id="minus" class="btn btn-default">
-      <span class="glyphicon glyphicon-zoom-out" aria-hidden="true"></span>
+      <span aria-label="Zoom out">-</span>
     </button>
   </div>
 </div>
 </div>
 
 <span id="viewBox" style="position:absolute;top:96%;left:80%;"> </span>
+<div id="status" role="status" style="position:fixed;bottom:0;left:0;background:white;max-width:75%;"></div>
 </body>
 </html>

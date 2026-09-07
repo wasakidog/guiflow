@@ -4,9 +4,13 @@
   "description": "a text editor",
   "main": "index.js",
   "scripts": {
-    "start": "DEBUG=true $(npm bin)/electron .",
-    "clean": "$(npm bin)/gulp clean",
-    "package": "$(npm bin)/gulp package"
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "build": "node scripts/package.mjs",
+    "package": "npm run build",
+    "package:win32": "node scripts/package.mjs win32",
+    "package:linux": "node scripts/package.mjs linux",
+    "package:all": "node scripts/package.mjs win32 linux"
   },
   "repository": {
     "type": "git",
@@ -19,22 +23,14 @@
   },
   "homepage": "https://github.com/hirokidaichi/guiflow",
   "dependencies": {
-    "dialogs": "^1.1.12",
-    "electron-debug": "^0.5.2",
-    "electron-windows-installer": "^1.2.5",
-    "flumine": "^0.1.8",
-    "sprintf": "^0.1.5",
-    "through2": "^2.0.1",
-    "uiflow": "^1.1.1"
+    "@viz-js/viz": "3.30.0",
+    "ace-builds": "1.44.0",
+    "uiflow": "1.1.8"
   },
   "devDependencies": {
-    "ace-min-noconflict": "^1.1.9",
-    "del": "^2.2.0",
-    "electron-packager": "^6.0.0",
-    "electron-prebuilt": "^0.36.9",
-    "gulp": "^3.9.1",
-    "gulp-shell": "^0.5.2",
-    "gulp-zip": "^3.2.0",
-    "run-sequence": "^1.1.5"
-  }
+    "@electron/packager": "20.3.0",
+    "electron": "44.2.0"
+  },
+  "engines": { "node": ">=22.12.0" },
+  "packageManager": "npm@11.6.1"
 }

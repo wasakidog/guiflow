@@ -4,9 +4,16 @@
     height:100%;
 }
 
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Helvetica Neue", Helvetica, sans-serif; font-size: 14px; color: #333; }
+.btn { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 6px 12px; cursor: pointer; line-height: 1.4; }
+.btn:hover { background: #e6e6e6; }
+.btn-group { display: inline-flex; }
+.btn-group .btn + .btn { margin-left: -1px; }
+
 .main {
     overflow : hidden;
-    height: 700px;
+    height: 100vh;
 }
 .text-container{
     width : 40%;

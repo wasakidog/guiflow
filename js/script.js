@@ -1,147 +1,86 @@
-//process.env.NODE_PATH = "./";
-if (process.platform == "win32") {
-    //modulePaths.push();
-    var p = process.resourcesPath; //+ "\\app";
-    console.log(p);
-    module.paths.unshift(p + "\\app");
-    module.paths.unshift(p + "\\app.asar");
-    module.paths.unshift(p + "\\app\\node_modules");
-    module.paths.unshift(p + "\\app.asar\\node_modules");
-}
-var resolvePath = function(p) {
-    if (process.platform == "win32") {
-        return p.replace(/^\.\//, '');
-    } else {
-        return p;
+'use strict';
+window.addEventListener('DOMContentLoaded', async () => {
+    const api = window.guiflow;
+    const editor = window.createFlowEditor();
+    const diagram = window.guiflowDiagram;
+    const status = document.getElementById('status');
+    let file;
+    let savedText = '';
+    let revision = 0;
+    let timer;
+    const report = error => { status.textContent = error.message || String(error); };
+    const title = () => { document.title = 'guiflow -- ' + (file || 'Untitled') + (editor.getValue() === savedText ? '' : ' *'); };
+    const confirmDiscard = () => editor.getValue() === savedText || window.confirm('Discard unsaved changes?');
+    const load = data => {
+        if (!data) return;
+        file = data.file;
+        savedText = data.text;
+        editor.setValue(data.text, -1);
+        title();
+    };
+    async function refresh(current) {
+        try {
+            const data = await api.compile(editor.getValue());
+            if (current !== revision) return;
+            diagram.refresh(data);
+            editor.session.clearAnnotations();
+            status.textContent = '';
+        } catch (error) {
+            if (current !== revision) return;
+            report(error);
+            editor.session.setAnnotations([{ row: 0, column: 0, type: 'error', text: error.message }]);
+        }
     }
-};
-var nodeModule = function() {
-    if (process.platform == "win32") {
-        return "node_modules/" + p;
-    } else {
-        return p;
+    editor.session.on('change', () => {
+        title();
+        clearTimeout(timer);
+        const current = ++revision;
+        timer = setTimeout(() => refresh(current), 250);
+    });
+    async function command(name) {
+        try {
+            switch (name) {
+            case 'open': if (confirmDiscard()) load(await api.open()); break;
+            case 'save':
+            case 'saveAs': {
+                const text = editor.getValue();
+                const result = await api.save(text, name === 'saveAs');
+                if (result) { file = result.file; savedText = text; title(); }
+                break;
+            }
+            case 'copy': await api.copyText(editor.getCopyText()); break;
+            case 'cut': await api.copyText(editor.getCopyText()); editor.session.remove(editor.getSelectionRange()); break;
+            case 'paste': editor.insert(await api.pasteText()); break;
+            case 'undo': editor.undo(); break;
+            case 'redo': editor.redo(); break;
+            case 'selectAll': editor.selectAll(); break;
+            }
+        } catch (error) { report(error); }
     }
-
-};
-var ipcRenderer = require("electron").ipcRenderer;
-var remote = require("remote");
-var fs = require("fs");
-var flumine = require("flumine");
-var $ = require(resolvePath("./js/jquery-2.1.4.min"));
-var uiflow = remote.require("./app/uiflow");
-var editor = require(resolvePath("./js/editor"));
-var diagram = require(resolvePath("./js/diagram"));
-
-[
-    "open",
-    "save",
-    "saveAs",
-    "undo",
-    "redo",
-    "cut",
-    "copy",
-    "paste",
-    "selectAll"
-].forEach(function(channel) {
-    ipcRenderer.on(channel, editor[channel].listener(2));
-});
-
-var sendToEditor = function(channel) {
-    return editor[channel];
-};
-
-var clipboard = require("clipboard");
-var nativeImage = require("native-image");
-
-var Menu = remote.require('menu');
-var menu = Menu.buildFromTemplate([{
-    label: "Undo",
-    accelerator: 'CmdOrCtrl+Z',
-    click: sendToEditor("undo"),
-}, {
-    label: "Redo",
-    accelerator: 'CmdOrCtrl+Y',
-    click: sendToEditor("redo"),
-}, {
-    type: 'separator'
-}, {
-    label: "Cut",
-    accelerator: 'CmdOrCtrl+X',
-    click: sendToEditor("cut"),
-}, {
-    label: "Copy",
-    accelerator: 'CmdOrCtrl+C',
-    click: sendToEditor("copy"),
-}, {
-    label: "Paste",
-    accelerator: 'CmdOrCtrl+V',
-    click: sendToEditor("paste"),
-}, {
-    label: "Select All",
-    accelerator: 'CmdOrCtrl+A',
-    click: sendToEditor("selectAll"),
-}, ]);
-
-window.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-    menu.popup(remote.getCurrentWindow());
-}, false);
-
-var dialogs = require("dialogs")({});
-
-
-$(function() {
-
-
-    $(window).on("load resize", function() {
-        $(".main").height($(window).height());
+    api.onCommand(command);
+    window.addEventListener('beforeunload', event => { if (!confirmDiscard()) event.returnValue = false; });
+    window.addEventListener('contextmenu', event => { event.preventDefault(); api.contextMenu().catch(report); });
+    diagram.on('page-click', line => { editor.gotoLine(Number(line) + 1, 0, true); editor.focus(); });
+    diagram.on('end-click', text => { editor.setValue(editor.getValue() + text, 1); editor.focus(); });
+    document.getElementById('download').addEventListener('click', async () => {
+        try {
+            const { svg } = await api.compile(editor.getValue());
+            const image = new Image();
+            image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+            await image.decode();
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.min(image.naturalWidth * 2, 8192);
+            canvas.height = Math.min(image.naturalHeight * 2, 8192);
+            const context = canvas.getContext('2d');
+            context.fillStyle = '#fff';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            await api.copyImage(canvas.toDataURL('image/png'));
+            status.textContent = 'Copied image to clipboard';
+        } catch (error) { report(error); }
     });
-    $("#download").click(function(e) {
-        editor.value.and(function(code) {
-            return uiflow.update("<anon>", code, "svg");
-        }).and(function(svg) {
-
-            var image = new Image;
-            var strSvg = String(svg);
-            var match = strSvg.match(/svg width="(\d+)pt" height="(\d+)pt"/);
-            var width = match[1];
-            var height = match[2];
-
-            image.src = "data:image/svg+xml," + encodeURIComponent(svg);
-            var cElement = document.createElement("canvas");
-            cElement.width = width * 2;
-            cElement.height = height * 2;
-            var cContext = cElement.getContext("2d");
-            cContext.fillStyle = "#fff";
-            cContext.fillRect(-10, -10, width * 3, height * 3);
-            cContext.drawImage(image, 0, 0, width * 2, height * 2);
-            var png = cElement.toDataURL("image/png");
-
-            var image = nativeImage.createFromDataURL(png);
-            clipboard.writeImage(image);
-
-            alert("Copied Image to Clipboard");
-        })();
-    });
-
-    editor.on("change", function(code) {
-        uiflow.compile(code).then(function(data) {
-                editor.clearError();
-                return data;
-            })
-            .then(diagram.refresh)
-            .catch(editor.setError);
-    });
-    editor.on("same", function(fileName) {
-        document.title = "guiflow -- " + (fileName || "Untitled") + " = ";
-    });
-    editor.on("diff", function(fileName) {
-        document.title = "guiflow -- " + (fileName || "Untitled") + " + ";
-    });
-    diagram.on("page-click", function(lines) {
-        editor.navigateTo(lines);
-    });
-    diagram.on("end-click", function(text) {
-        editor.insert(text);
-    });
+    try { load(await api.ready()); } catch (error) { report(error); }
+    refresh(revision);
+    title();
+    editor.focus();
 });
