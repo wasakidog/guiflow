@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.js",
+    "test:electron": "electron test/electron-regression.cjs",
     "build": "node scripts/package.mjs",
     "package": "npm run build",
     "package:win32": "node scripts/package.mjs win32",

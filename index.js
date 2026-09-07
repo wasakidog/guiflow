@@ -4,6 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { compile } = require('./app/uiflow');
+const { confirmDiscard, installCloseGuard } = require('./app/unsaved-changes');
 const documents = new Map();
 const page = pathToFileURL(path.join(__dirname, 'index.html')).href;
 const smoke = process.argv.includes('--smoke-test');
@@ -21,13 +22,14 @@ function send(command) {
 }
 function createWindow() {
     const window = new BrowserWindow({
-        width: 1100, height: 800, title: 'guiflow', show: !smoke,
+        width: 1100, height: 800, title: 'guiflow', show: !smoke && !process.argv.includes('--hidden'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false, contextIsolation: true, sandbox: true,
         },
     });
     documents.set(window.id, null);
+    installCloseGuard(window, dialog);
     window.on('closed', () => documents.delete(window.id));
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     window.webContents.on('will-navigate', event => event.preventDefault());
@@ -38,6 +40,7 @@ function createWindow() {
 app.whenReady().then(() => {
     session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
     handle('flow:compile', (_window, code) => compile(code));
+    handle('document:confirm-discard', window => confirmDiscard(window, dialog));
     handle('document:open', async window => {
         const result = await dialog.showOpenDialog(window, {
             properties: ['openFile'], filters: [{ name: 'Documents', extensions: ['txt', 'md', 'text'] }],

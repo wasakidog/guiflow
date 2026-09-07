@@ -13,6 +13,10 @@ npm test
 npm start
 ```
 
+`npm run test:electron` runs a hidden Electron regression test for live edits,
+newlines, recovery from invalid syntax, and cancel/discard of unsaved changes.
+Dialog responses are simulated in this test; no user documents are touched.
+
 On PowerShell, use `npm.cmd` if execution policy blocks `npm.ps1`.
 The first `npm start` may download the Electron development binary.
 

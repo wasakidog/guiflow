@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('guiflow', {
     open: () => ipcRenderer.invoke('document:open'),
     save: (text, saveAs) => ipcRenderer.invoke('document:save', text, !!saveAs),
     ready: () => ipcRenderer.invoke('document:ready'),
+    confirmDiscard: () => ipcRenderer.invoke('document:confirm-discard'),
     copyText: text => ipcRenderer.invoke('clipboard:write-text', text),
     pasteText: () => ipcRenderer.invoke('clipboard:read-text'),
     copyImage: data => ipcRenderer.invoke('clipboard:write-image', data),

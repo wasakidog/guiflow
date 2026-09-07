@@ -10,7 +10,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     let timer;
     const report = error => { status.textContent = error.message || String(error); };
     const title = () => { document.title = 'guiflow -- ' + (file || 'Untitled') + (editor.getValue() === savedText ? '' : ' *'); };
-    const confirmDiscard = () => editor.getValue() === savedText || window.confirm('Discard unsaved changes?');
+    const isDirty = () => editor.getValue() !== savedText;
+    const confirmDiscard = async () => !isDirty() || await api.confirmDiscard();
     const load = data => {
         if (!data) return;
         file = data.file;
@@ -35,12 +36,12 @@ window.addEventListener('DOMContentLoaded', async () => {
         title();
         clearTimeout(timer);
         const current = ++revision;
-        timer = setTimeout(() => refresh(current), 250);
+        timer = setTimeout(() => refresh(current), 100);
     });
     async function command(name) {
         try {
             switch (name) {
-            case 'open': if (confirmDiscard()) load(await api.open()); break;
+            case 'open': if (await confirmDiscard()) load(await api.open()); break;
             case 'save':
             case 'saveAs': {
                 const text = editor.getValue();
@@ -58,7 +59,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         } catch (error) { report(error); }
     }
     api.onCommand(command);
-    window.addEventListener('beforeunload', event => { if (!confirmDiscard()) event.returnValue = false; });
+    window.addEventListener('beforeunload', event => {
+        if (isDirty()) { event.preventDefault(); event.returnValue = false; }
+    });
     window.addEventListener('contextmenu', event => { event.preventDefault(); api.contextMenu().catch(report); });
     diagram.on('page-click', line => { editor.gotoLine(Number(line) + 1, 0, true); editor.focus(); });
     diagram.on('end-click', text => { editor.setValue(editor.getValue() + text, 1); editor.focus(); });

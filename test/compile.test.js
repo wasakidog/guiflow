@@ -17,3 +17,16 @@ test('rejects non-text and oversized documents', async () => {
 test('compiles empty documents without hanging', async () => {
     assert.match((await compile('')).svg, /<svg/);
 });
+
+test('renders repeated edits and newlines in the reported shop graph', async () => {
+    const initial = await fs.readFile(path.join(__dirname, 'fixtures/reported-flow.txt'), 'utf8');
+    await compile('');
+    assert.match((await compile(initial)).svg, /aaaababab/);
+    for (let i = 0; i < 8; i++) {
+        const marker = 'AddedLine' + i;
+        const result = await compile(initial + '\n' + marker);
+        assert.ok(result.svg.includes(marker));
+    }
+    await assert.rejects(compile('text without a section'));
+    assert.ok((await compile(initial.replace('aaaababab', 'REPLACED'))).svg.includes('REPLACED'));
+});
