@@ -30,3 +30,30 @@ test('renders repeated edits and newlines in the reported shop graph', async () 
     await assert.rejects(compile('text without a section'));
     assert.ok((await compile(initial.replace('aaaababab', 'REPLACED'))).svg.includes('REPLACED'));
 });
+
+function firstNode(svg) {
+    return svg.match(/<g id="node1" class="node">([\s\S]*?)<\/g>/)[1];
+}
+
+test('title followed by separator has no empty row before actions', async () => {
+    const code = '[アイテムダイアログ]\n---\n購入\n==>カケラショップ\nキャンセル\n==>カケラショップ';
+    const { svg, meta } = await compile(code);
+    const node = firstNode(svg);
+    assert.equal((node.match(/<polyline /g) || []).length, 2);
+    assert.match(node, /購入/);
+    assert.match(node, /キャンセル/);
+    assert.equal((svg.match(/class="edge"/g) || []).length, 2);
+    assert.deepEqual(JSON.parse(meta)['アイテムダイアログ'].see, []);
+});
+
+test('nonempty description remains between title and actions', async () => {
+    const { svg } = await compile('[Dialog]\nDescription\n---\nBuy\n==>Shop\nCancel\n==>Shop');
+    const node = firstNode(svg);
+    assert.equal((node.match(/<polyline /g) || []).length, 3);
+    assert.match(node, /Description/);
+});
+
+test('title with no description or actions has no empty compartment', async () => {
+    const { svg } = await compile('[Title]\n---');
+    assert.equal((firstNode(svg).match(/<polyline /g) || []).length, 0);
+});
