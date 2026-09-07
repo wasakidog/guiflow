@@ -74,13 +74,13 @@ var refresh = function(data) {
 
     svg.find("g.node polygon").attr("fill", "white");
     svg.find("g.node ellipse").attr("fill", "white");
-    svg.find("g.node").on("mouseover", function(e) {
+    svg.find("g.node:not(.transition_label)").on("mouseover", function(e) {
         $(this).find("polygon").attr("stroke", "green");
         $(this).find("polygon").attr("stroke-width", "4");
         $(this).find("ellipse").attr("stroke", "red");
         $(this).find("ellipse").attr("stroke-width", "4");
     });
-    svg.find("g.node").on("click", function(e) {
+    svg.find("g.node:not(.transition_label)").on("click", function(e) {
         var text = $(this).find("title").text().trim();
         if ($(this).find("ellipse").length === 0) {
             if (!metaData[text]) return;
@@ -91,7 +91,7 @@ var refresh = function(data) {
             emitter.emit("end-click", insertText);
         }
     });
-    svg.find("g.node").on("mouseout", function(e) {
+    svg.find("g.node:not(.transition_label)").on("mouseout", function(e) {
         $(this).find("polygon").attr("stroke", "black");
         $(this).find("polygon").attr("stroke-width", "1");
         $(this).find("ellipse").attr("stroke", "black");

@@ -57,3 +57,31 @@ test('title with no description or actions has no empty compartment', async () =
     const { svg } = await compile('[Title]\n---');
     assert.equal((firstNode(svg).match(/<polyline /g) || []).length, 0);
 });
+
+test('transition labels are circular nodes connected on both sides', async () => {
+    const { svg, meta } = await compile('[出発]\n---\n移動\n={キャラ移動}=>カケラショップ\n\n[カケラショップ]\n---\n購入');
+    const circle = svg.match(/<g [^>]*class="node transition_label">([\s\S]*?)<\/g>/);
+    assert.ok(circle);
+    assert.match(circle[1], /キャラ移動/);
+    const ellipse = circle[1].match(/<ellipse[^>]*rx="([\d.]+)" ry="([\d.]+)"/);
+    assert.ok(ellipse);
+    assert.equal(ellipse[1], ellipse[2]);
+    assert.equal((svg.match(/class="edge"/g) || []).length, 2);
+    const edgeGroups = [...svg.matchAll(/<g [^>]*class="edge">([\s\S]*?)<\/g>/g)];
+    assert.equal(edgeGroups.filter(group => group[1].includes('<polygon')).length, 1);
+    assert.equal(JSON.parse(meta)['出発'].actions[0].edge, 'キャラ移動');
+    assert.deepEqual(Object.keys(JSON.parse(meta)), ['出発', 'カケラショップ']);
+});
+
+test('plain arrows have no transition circles', async () => {
+    const { svg } = await compile('[Start]\n---\nGo\n==>End');
+    assert.doesNotMatch(svg, /transition_label/);
+    assert.equal((svg.match(/class="edge"/g) || []).length, 1);
+});
+
+test('repeated labels and user names cannot merge transition circles', async () => {
+    const { svg } = await compile('[Start]\n---\nOne\n={Move}=>__guiflow_transition_0\nTwo\n={Move}=>__guiflow_transition_0');
+    assert.equal((svg.match(/class="node transition_label"/g) || []).length, 2);
+    assert.match(svg, /<title>__guiflow_transition_0<\/title>/);
+    assert.equal((svg.match(/class="edge"/g) || []).length, 4);
+});

@@ -42,6 +42,19 @@ app.on('browser-window-created', (_event, window) => {
                 if (!document.getElementById('status').textContent) throw new Error('Missing syntax error');
                 editor.setValue(${JSON.stringify(code)} + '\\nRECOVERED', -1);
                 await waitFor('RECOVERED');
+                const circleData = await window.guiflow.compile('[Start]\\n---\\nGo\\n={Move}=>End');
+                window.guiflowDiagram.refresh(circleData);
+                const label = document.querySelector('g.transition_label');
+                if (!label) throw new Error('Missing transition circle');
+                const ellipse = label.querySelector('ellipse');
+                const x = ellipse.cx.baseVal.value, y = ellipse.cy.baseVal.value, r = ellipse.rx.baseVal.value;
+                const gaps = [...document.querySelectorAll('g.edge path')]
+                    .flatMap(p => [p.getPointAtLength(0), p.getPointAtLength(p.getTotalLength())])
+                    .map(p => Math.abs(Math.hypot(p.x-x, p.y-y)-r)).sort((a,b) => a-b);
+                if (gaps[1] > 2) throw new Error('Transition circle is too far from lines');
+                const beforeClick = editor.getValue();
+                label.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                if (editor.getValue() !== beforeClick) throw new Error('Transition circle inserted a page');
                 return { typing: true, newline: true, recovery: true, content: editor.getValue() };
             })()`);
             window.close();
@@ -52,7 +65,7 @@ app.on('browser-window-created', (_event, window) => {
             window.once('closed', () => {
                 clearTimeout(timeout);
                 if (timedOut) return;
-                console.log('REGRESSION PASS ' + JSON.stringify({ typing: true, newline: true, recovery: true, cancelClose: true, discardClose: true }));
+                console.log('REGRESSION PASS ' + JSON.stringify({ typing: true, newline: true, recovery: true, circularLabels: true, cancelClose: true, discardClose: true }));
             });
             window.close();
         } catch (error) { console.error(error); clearTimeout(timeout); app.exit(1); }
